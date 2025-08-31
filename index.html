@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TextBuddy</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root{
+      --primary:#15c39a; --secondary:#4a6cf7; --error:#f56565;
+      --bg:#f6f7fb; --card:#ffffff; --text:#1f2732; --muted:#738091;
+      --ring:0 8px 24px rgba(21,195,154,.25); --soft:0 4px 16px rgba(0,0,0,.08);
+    }
+    body.dark{
+      --bg:#0f1623; --card:#121a2a; --text:#e7eefb; --muted:#a7b4c9;
+      --primary:#38b2ac; --secondary:#7aa2ff; --error:#ff7b7b;
+      --ring:0 8px 24px rgba(56,178,172,.25); --soft:0 4px 16px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);transition:.25s background,.25s color}
+    header{
+      position:sticky;top:0;z-index:3;background:linear-gradient(180deg,var(--card),rgba(255,255,255,0));
+      backdrop-filter:saturate(140%) blur(6px); border-bottom:1px solid rgba(0,0,0,.06);
+    }
+    .bar{
+      max-width:1200px;margin:0 auto;padding:14px 18px;display:flex;align-items:center;gap:12px;justify-content:space-between
+    }
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700}
+    .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 6px rgba(21,195,154,.15)}
+    .brand span{letter-spacing:.3px}
+    .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    select, .input{
+      appearance:none;background:var(--card);color:var(--text);border:1px solid rgba(0,0,0,.08);
+      padding:8px 12px;border-radius:10px;font-weight:600;box-shadow:var(--soft);outline:none
+    }
+    .btn{
+      border:0;border-radius:12px;padding:9px 14px;font-weight:700;cursor:pointer;
+      background:var(--primary);color:#fff;box-shadow:var(--ring);transition:.2s transform,.2s box-shadow
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn.secondary{background:linear-gradient(180deg,#eef2ff,#e7ecff);color:#23324d}
+    body.dark .btn.secondary{background:#2b3750;color:#e7eefb}
+    .btn.ghost{background:transparent;color:var(--text);border:1px solid rgba(0,0,0,.08)}
+    .toggle{width:44px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+    main{max-width:1200px;margin:24px auto;display:grid;grid-template-columns:1fr 320px;gap:18px;padding:0 18px}
+    .card{background:var(--card);border-radius:16px;box-shadow:var(--soft)}
+    .editor-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(0,0,0,.06)}
+    .editor{min-height:360px;padding:18px;outline:none;line-height:1.7;font-size:1.02rem}
+    .editor:empty:before{content:"Paste or type your essay here...";color:var(--muted)}
+    .editor-footer{display:flex;gap:14px;align-items:center;justify-content:flex-end;padding:10px 14px;border-top:1px solid rgba(0,0,0,.06);color:var(--muted);font-weight:600}
+    .chip{background:rgba(0,0,0,.06);padding:6px 10px;border-radius:999px}
+    body.dark .chip{background:#1d2740}
+    .sidebar{padding:14px}
+    .side-head{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 12px}
+    .side-title{font-size:1.05rem;font-weight:800}
+    .suggestions{display:flex;flex-direction:column;gap:10px}
+    .suggestion{padding:10px 12px;border:1px dashed rgba(0,0,0,.08);border-radius:12px}
+    .badge{font-size:.74rem;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#243560;font-weight:700}
+    body.dark .badge{background:#2b3750;color:#bcd0ff}
+    .highlight{background:rgba(245,101,101,.22);border-bottom:2px dashed var(--error);border-radius:6px;padding:0 2px;cursor:pointer}
+    .donate{margin-top:16px;padding:14px;border-radius:14px;background:linear-gradient(135deg,rgba(21,195,154,.15),rgba(74,108,247,.12))}
+    .donate .btn{width:100%}
+    .tips{font-size:.82rem;color:var(--muted);margin-top:8px}
+    @media (max-width:980px){main{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="brand"><span class="dot"></span><span id="app-title">Student Grammarly Lite</span></div>
+      <div class="controls">
+        <select id="ui-language-select" title="UI Language">
+          <option value="en">English</option>
+          <option value="ur">اردو (Urdu)</option>
+          <option value="hi">हिंदी (Hindi)</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+        </select>
+        <button id="dark-toggle" class="btn toggle" title="Toggle theme">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Editor -->
+    <section class="card">
+      <div class="editor-header">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <strong id="label-write">Write your text:</strong>
+          <select id="language-select" title="Grammar language">
+            <option value="en-US">English (US)</option>
+            <option value="en-GB">English (UK)</option>
+            <option value="ur">Urdu (اردو)</option>
+            <option value="hi">Hindi (हिंदी)</option>
+            <option value="fr">Français</option>
+            <option value="es">Español</option>
+            <option value="de">Deutsch</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="check-grammar">Check Grammar</button>
+          <button class="btn secondary" id="fix-all">Fix All</button>
+          <button class="btn secondary" id="download-doc">Download Word</button>
+          <button class="btn secondary" id="download-pdf">Download PDF</button>
+          <button class="btn secondary" id="plagiarism-check">Check Plagiarism</button>
+        </div>
+      </div>
+
+      <div id="text-editor" class="editor" contenteditable="true"></div>
+
+      <div class="editor-footer">
+        <span class="chip" id="label-words">Words: <b id="word-count">0</b></span>
+        <span class="chip" id="label-chars">Characters: <b id="char-count">0</b></span>
+        <span class="chip" id="label-issues">Issues: <b id="issues-count">0</b></span>
+      </div>
+    </section>
+
+    <!-- Sidebar -->
+    <aside class="card sidebar">
+      <div class="side-head">
+        <div class="side-title" id="label-suggestions">Suggestions</div>
+        <span class="badge" id="label-live">Live</span>
+      </div>
+      <div id="suggestions-container" class="suggestions"></div>
+
+      <div class="donate">
+        <p id="label-support" style="margin:0 0 10px 0;font-weight:700">🙏 Support this free tool</p>
+        <a href="https://destream.net/live/Idrees4218/donate" target="_blank" rel="noopener">
+          <button class="btn" id="label-donate">💖 Donate on DeStream</button>
+        </a>
+        <div class="tips">Even a small tip helps keep the API running for students.</div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // ====== ELEMENTS ======
+    const body = document.body;
+    const editor = document.getElementById('text-editor');
+    const suggestionsEl = document.getElementById('suggestions-container');
+    const checkBtn = document.getElementById('check-grammar');
+    const fixAllBtn = document.getElementById('fix-all');
+    const wordCountEl = document.getElementById('word-count');
+    const charCountEl = document.getElementById('char-count');
+    const issuesCountEl = document.getElementById('issues-count');
+    const downloadDocBtn = document.getElementById('download-doc');
+    const downloadPdfBtn = document.getElementById('download-pdf');
+    const plagBtn = document.getElementById('plagiarism-check');
+    const langSelect = document.getElementById('language-select');
+    const uiLangSelect = document.getElementById('ui-language-select');
+    const darkToggle = document.getElementById('dark-toggle');
+
+    // ====== UI TRANSLATIONS ======
+    const T = {
+      en:{ title:"Student Grammarly Lite", write:"Write your text:", words:"Words", chars:"Characters", issues:"Issues",
+           suggestions:"Suggestions", live:"Live", support:"🙏 Support this free tool",
+           donate:"💖 Donate on DeStream", check:"Check Grammar", fix:"Fix All",
+           dword:"Download Word", dpdf:"Download PDF", plag:"Check Plagiarism",
+           checking:"Checking...", allfixed:"All issues fixed ✅", clicktofix:"Click red highlights to apply fix" },
+      ur:{ title:"اسٹوڈنٹ گرامرلی لائٹ", write:"اپنا متن لکھیں:", words:"الفاظ", chars:"حروف", issues:"مسائل",
+           suggestions:"تجاویز", live:"فعال", support:"🙏 اس مفت ٹول کی مدد کریں",
+           donate:"💖 ڈونیٹ کریں (DeStream)", check:"گرامر چیک کریں", fix:"سب درست کریں",
+           dword:"ورڈ فائل ڈاؤنلوڈ", dpdf:"PDF ڈاؤنلوڈ", plag:"پلینجرزم چیک کریں",
+           checking:"چیک ہو رہا ہے...", allfixed:"تمام غلطیاں درست ✅", clicktofix:"درستگی کیلئے ہائی لائٹ پر کلک کریں" },
+      hi:{ title:"स्टूडेंट ग्रामरली लाइट", write:"अपना पाठ लिखें:", words:"शब्द", chars:"अक्षर", issues:"गलतियाँ",
+           suggestions:"सुझाव", live:"लाइव", support:"🙏 इस मुफ्त टूल को सपोर्ट करें",
+           donate:"💖 DeStream पर दान करें", check:"ग्रामर जाँचें", fix:"सब सुधारें",
+           dword:"वर्ड डाउनलोड", dpdf:"PDF डाउनलोड", plag:"प्लेजरिज़्म जाँचें",
+           checking:"जाँच हो रही है...", allfixed:"सारी गलतियाँ ठीक ✅", clicktofix:"सुधार के लिए लाल टेक्स्ट पर क्लिक करें" },
+      fr:{ title:"Grammarly Étudiant Lite", write:"Écrivez votre texte :", words:"Mots", chars:"Caractères", issues:"Problèmes",
+           suggestions:"Suggestions", live:"Actif", support:"🙏 Soutenez cet outil gratuit",
+           donate:"💖 Faire un don sur DeStream", check:"Vérifier la grammaire", fix:"Tout corriger",
+           dword:"Télécharger Word", dpdf:"Télécharger PDF", plag:"Vérifier le plagiat",
+           checking:"Vérification...", allfixed:"Tout corrigé ✅", clicktofix:"Cliquez sur les surbrillances rouges pour corriger" },
+      es:{ title:"Grammarly Estudiantil Lite", write:"Escribe tu texto:", words:"Palabras", chars:"Caracteres", issues:"Errores",
+           suggestions:"Sugerencias", live:"Activo", support:"🙏 Apoya esta herramienta gratuita",
+           donate:"💖 Donar en DeStream", check:"Revisar gramática", fix:"Corregir todo",
+           dword:"Descargar Word", dpdf:"Descargar PDF", plag:"Verificar plagio",
+           checking:"Comprobando...", allfixed:"Todo corregido ✅", clicktofix:"Haz clic en los resaltados rojos para corregir" }
+    };
+
+    function setUI(lang){
+      const t=T[lang]||T.en;
+      document.getElementById('app-title').textContent=t.title;
+      document.getElementById('label-write').textContent=t.write;
+      document.getElementById('label-words').childNodes[0].nodeValue=t.words+": ";
+      document.getElementById('label-chars').childNodes[0].nodeValue=t.chars+": ";
+      document.getElementById('label-issues').childNodes[0].nodeValue=t.issues+": ";
+      document.getElementById('label-suggestions').textContent=t.suggestions;
+      document.getElementById('label-live').textContent=t.live;
+      document.getElementById('label-support').textContent=t.support;
+      document.getElementById('label-donate').textContent=t.donate;
+      checkBtn.textContent=t.check;
+      fixAllBtn.textContent=t.fix;
+      downloadDocBtn.textContent=t.dword;
+      downloadPdfBtn.textContent=t.dpdf;
+      plagBtn.textContent=t.plag;
+      localStorage.setItem('uiLang',lang);
+    }
+    uiLangSelect.addEventListener('change',()=>setUI(uiLangSelect.value));
+    setUI(localStorage.getItem('uiLang')||'en'); uiLangSelect.value=localStorage.getItem('uiLang')||'en';
+
+    // ====== THEME ======
+    function applyTheme(dark){
+      if(dark){ body.classList.add('dark'); darkToggle.textContent='☀️'; localStorage.setItem('darkMode','1'); }
+      else{ body.classList.remove('dark'); darkToggle.textContent='🌙'; localStorage.setItem('darkMode','0'); }
+    }
+    darkToggle.addEventListener('click',()=>applyTheme(!body.classList.contains('dark')));
+    applyTheme(localStorage.getItem('darkMode')==='1');
+
+    // ====== COUNTS ======
+    function updateCounts(){
+      const txt=editor.innerText;
+      const words=txt.trim()?txt.trim().split(/\s+/).length:0;
+      wordCountEl.textContent=words;
+      charCountEl.textContent=txt.length;
+    }
+    editor.addEventListener('input',updateCounts); editor.addEventListener('keyup',updateCounts); updateCounts();
+
+    // ====== HELPERS ======
+    function stripHtml(html){ const d=document.createElement('div'); d.innerHTML=html; return d.textContent||''; }
+    function infoNote(text){ const p=document.createElement('div'); p.className='tips'; p.textContent=text; suggestionsEl.prepend(p); }
+
+    // ====== GRAMMAR CHECK (LanguageTool) ======
+    async function runGrammar(){
+      const text = editor.innerText;
+      if(!text.trim()){ alert('Please write or paste text first!'); return; }
+      const t=T[uiLangSelect.value]||T.en;
+      suggestionsEl.innerHTML = `<div class="suggestion"><b>${t.checking}</b></div>`;
+      issuesCountEl.textContent='0';
+
+      try{
+        const res = await fetch('https://api.languagetool.org/v2/check',{
+          method:'POST',
+          headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body:new URLSearchParams({ text, language: langSelect.value })
+        });
+        const data = await res.json();
+        displayMatches(data.matches || []);
+        infoNote(t.clicktofix);
+      }catch(e){
+        suggestionsEl.innerHTML = `<div class="suggestion" style="color:var(--error)">Network error. Try again.</div>`;
+      }
+    }
+
+    function displayMatches(matches){
+      suggestionsEl.innerHTML='';
+      issuesCountEl.textContent = matches.length;
+
+      // Rebuild editor innerHTML with highlights using offsets
+      const raw = editor.innerText;
+      let out = '', last = 0;
+
+      matches.forEach((m)=>{
+        const off = m.offset, len = m.length;
+        const before = raw.slice(last, off);
+        const problem = raw.slice(off, off+len);
+        const replacement = m.replacements?.[0]?.value || '';
+        out += before + `<span class="highlight" data-replace="${replacement.replace(/"/g,'&quot;')}">${escapeHtml(problem)}</span>`;
+        last = off + len;
+
+        const sug = document.createElement('div');
+        sug.className='suggestion';
+        sug.innerHTML = `
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+            <span class="badge">${escapeHtml(m.rule?.category?.name || 'Issue')}</span>
+            <span>${escapeHtml(m.message || 'Consider a change')}</span>
+          </div>
+          <div>Suggestion: <b>${replacement ? escapeHtml(replacement) : '—'}</b></div>`;
+        suggestionsEl.appendChild(sug);
+      });
+      out += raw.slice(last);
+      editor.innerHTML = out;
+      updateCounts();
+    }
+
+    function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c])); }
+
+    // Apply single fix on click
+    editor.addEventListener('click',e=>{
+      if(e.target.classList.contains('highlight')){
+        const rep = e.target.dataset.replace || '';
+        if(rep){ e.target.outerHTML = rep; updateCounts(); }
+      }
+    });
+
+    // Fix all
+    fixAllBtn.addEventListener('click',()=>{
+      const hs = editor.querySelectorAll('.highlight');
+      hs.forEach(h=>{ const rep=h.dataset.replace; if(rep){ h.outerHTML = rep; } });
+      issuesCountEl.textContent='0';
+      suggestionsEl.innerHTML = `<div class="suggestion">${(T[uiLangSelect.value]||T.en).allfixed}</div>`;
+      updateCounts();
+    });
+
+    checkBtn.addEventListener('click', runGrammar);
+
+    // ====== DOWNLOADS ======
+    downloadDocBtn.addEventListener('click',()=>{
+      const text = editor.innerText;
+      const blob = new Blob(['\ufeff', text], { type:'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement('a'), { href:url, download:'Essay.doc' });
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+
+    downloadPdfBtn.addEventListener('click',()=>{
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit:'pt', format:'a4' });
+      const margin = 40, width = 515;
+      const text = editor.innerText;
+      const lines = doc.splitTextToSize(text, width);
+      doc.text(lines, margin, margin+10);
+      doc.save('Essay.pdf');
+    });
+
+    // ====== PLAIGARISM (RapidAPI) ======
+    plagBtn.addEventListener('click', async ()=>{
+      const text = editor.innerText.trim();
+      if(!text){ alert('Please write or paste text first!'); return; }
+      const t=T[uiLangSelect.value]||T.en;
+      suggestionsEl.innerHTML = `<div class="suggestion"><b>${t.checking} (plagiarism)</b></div>`;
+      try{
+        const res = await fetch('https://plagiarism-checker-api.p.rapidapi.com/plagiarism',{
+          method:'POST',
+          headers:{
+            'content-type':'application/json',
+            'X-RapidAPI-Key':'Bi5r4HaHUQ4voaUEu3HD1xICgALanY0gSRb3rlbldaa17c95',
+            'X-RapidAPI-Host':'plagiarism-checker-api.p.rapidapi.com'
+          },
+          body: JSON.stringify({ text })
+        });
+        const result = await res.json();
+        const plag = result.percentPlagiarism ?? result.plagiarism ?? 0;
+        const uniq = result.percentUnique ?? (100 - (+plag || 0));
+        suggestionsEl.innerHTML = `
+          <div class="suggestion">
+            <div style="font-weight:800;margin-bottom:6px">Plagiarism Report</div>
+            <div>Plagiarized: <b>${Math.round(plag)}%</b> ❌</div>
+            <div>Unique: <b>${Math.round(uniq)}%</b> ✅</div>
+          </div>`;
+      }catch(e){
+        suggestionsEl.innerHTML = `<div class="suggestion" style="color:var(--error)">Error: Unable to check plagiarism.</div>`;
+      }
+    });
+
+    // ====== QUALITY OF LIFE ======
+    // Paste as plain text (avoid weird HTML)
+    editor.addEventListener('paste', (e)=>{
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+
+    // Simple debounce for heavy actions if you ever auto-check
+    function debounce(fn, wait=500){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),wait); }; }
+
+  </script>
+</body>
+</html>
